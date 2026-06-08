@@ -1,0 +1,167 @@
+﻿import 'package:flutter/material.dart';
+import 'package:onenm_local_llm/onenm_local_llm.dart';
+
+class OfflineAIScreen extends StatefulWidget {
+  const OfflineAIScreen({super.key});
+
+  @override
+  State<OfflineAIScreen> createState() => _OfflineAIScreenState();
+}
+
+class _OfflineAIScreenState extends State<OfflineAIScreen> {
+  late OneNm _ai;
+  final TextEditingController _controller = TextEditingController();
+  final List<Map<String, String>> _messages = [];
+  bool _isLoading = false;
+  String _statusMessage = 'Initializing...';
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeAI();
+  }
+
+  Future<void> _initializeAI() async {
+    try {
+      setState(() => _statusMessage = 'Memeriksa model...');
+      
+      _ai = OneNm(
+        model: OneNmModel.gemma2b,
+        onProgress: (status) {
+          if (mounted) {
+            setState(() => _statusMessage = status);
+          }
+        },
+      );
+      
+      setState(() => _statusMessage = 'Memuat model...');
+      await _ai.initialize();
+      
+      setState(() {
+        _statusMessage = 'Model siap!';
+        _isInitialized = true;
+      });
+    } catch (e) {
+      setState(() => _statusMessage = 'Error: $e');
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    if (!_isInitialized) {
+      setState(() => _statusMessage = 'Model belum siap, tunggu sebentar...');
+      return;
+    }
+    final message = _controller.text.trim();
+    if (message.isEmpty) return;
+
+    setState(() {
+      _messages.add({'sender': 'user', 'text': message});
+      _controller.clear();
+      _isLoading = true;
+    });
+
+    try {
+      final reply = await _ai.chat(message);
+      if (mounted) {
+        setState(() {
+          _messages.add({'sender': 'bot', 'text': reply});
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _messages.add({'sender': 'bot', 'text': 'Error: $e'});
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D0D1A),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0D0D1A),
+        title: const Text('Winatra Core', style: TextStyle(color: Color(0xFF9B7EFF))),
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8.0),
+            color: Colors.black26,
+            child: Text(
+              _statusMessage,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              reverse: true,
+              padding: const EdgeInsets.all(16.0),
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                final message = _messages[_messages.length - 1 - index];
+                final isUser = message['sender'] == 'user';
+                return Align(
+                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 4.0),
+                    padding: const EdgeInsets.all(12.0),
+                    decoration: BoxDecoration(
+                      color: isUser ? const Color(0xFF6B4EFF) : const Color(0xFF2A2A2E),
+                      borderRadius: BorderRadius.circular(16.0),
+                    ),
+                    child: Text(
+                      message['text']!,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Tanya AI Offline...',
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      filled: true,
+                      fillColor: const Color(0xFF1E1E24),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30.0),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.send, color: Color(0xFF6B4EFF)),
+                  onPressed: _isLoading ? null : _sendMessage,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ai.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+}
