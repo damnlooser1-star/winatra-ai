@@ -27,7 +27,7 @@ dependencies:
   mobile_rag_engine: ^0.1.0  # RAG all-in-one
   permission_handler: ^11.0.0  # Izin storage Android
   syncfusion_flutter_pdf: ^26.1.41  # Baca PDF
-  docx: ^0.3.0  # Baca DOCX
+  
 
 dev_dependencies:
   flutter_test:
