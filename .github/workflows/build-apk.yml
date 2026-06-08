@@ -1,13 +1,18 @@
 name: Build APK
+
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:  # biar bisa di-run manual dari tab Actions
+
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source code
+        uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -18,41 +23,47 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.9'
+          flutter-version: '3.22.1'   # versi stabil terbaru yang support Dart 3.4+
           channel: 'stable'
 
+      # ===== FIX: Buat google-services.json dari secret RAW JSON =====
       - name: Create google-services.json
-        run: echo "$GOOGLE_SERVICES_B64" | base64 --decode > android/app/google-services.json
-        env:
-          GOOGLE_SERVICES_B64: ${{ secrets.GOOGLE_SERVICES_B64 }}
+        run: echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > android/app/google-services.json
 
+      # (Opsional) verifikasi file JSON (hanya 3 baris pertama)
       - name: Verify google-services.json
         run: head -3 android/app/google-services.json
 
+      # ===== Suntikkan API Key Groq ke dalam kode (jika placeholder tersedia) =====
       - name: Inject Groq API Key
         run: |
-          sed -i "s/BUILD_GROQ_API_KEY/$GROQ_API_KEY/g" android/app/src/main/kotlin/com/example/winatra_ai/WinatraService.kt
-          sed -i "s/BUILD_GROQ_API_KEY/$GROQ_API_KEY/g" android/app/src/main/kotlin/com/example/winatra_ai/WinatraKeyboardService.kt
+          # Pastikan file Kotlin memiliki placeholder "BUILD_GROQ_API_KEY"
+          sed -i "s/BUILD_GROQ_API_KEY/${{ secrets.GROQ_API_KEY }}/g" \
+            android/app/src/main/kotlin/com/example/winatra_ai/WinatraService.kt
+          sed -i "s/BUILD_GROQ_API_KEY/${{ secrets.GROQ_API_KEY }}/g" \
+            android/app/src/main/kotlin/com/example/winatra_ai/WinatraKeyboardService.kt
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
-      - name: Install dependencies
+      - name: Install Flutter dependencies
         run: flutter pub get
 
+      # ===== Optimasi Gradle untuk build di CI =====
       - name: Set Gradle heap
         run: |
           mkdir -p ~/.gradle
           echo "org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=512m -XX:+UseSerialGC" >> ~/.gradle/gradle.properties
           echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
 
-      - name: Build APK
+      - name: Build APK (release)
         run: flutter build apk --release --target-platform android-arm64
 
-      - name: List files (debug)
+      - name: List APK files (debug)
         run: ls -la build/app/outputs/flutter-apk/
 
-      - name: Upload APK
+      - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
         with:
           name: winatra-ai-release
           path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 7   # agar tidak cepat penuh
