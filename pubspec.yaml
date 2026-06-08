@@ -8,7 +8,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  shared_preferences: ^2.5.5
+  shared_preferences: ^2.5.3
   awesome_notifications: ^0.11.0
   flutter_background_service: ^5.0.1
   http: ^1.2.1
@@ -24,10 +24,6 @@ dependencies:
   hive_flutter: ^1.1.0
   dio: ^5.3.0
   onenm_local_llm: ^0.1.5
-  mobile_rag_engine: ^0.1.0  # RAG all-in-one
-  permission_handler: ^11.0.0  # Izin storage Android
-  syncfusion_flutter_pdf: ^26.1.41  # Baca PDF
-  
 
 dev_dependencies:
   flutter_test:
@@ -40,5 +36,3 @@ flutter:
   assets:
     - assets/logo.png
     - assets/qris.png
-
-
